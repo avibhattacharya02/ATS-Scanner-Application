@@ -16,6 +16,10 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Optional AI resume suggestions
+
+The ATS score and local suggestions work without an external API. To enable AI-generated suggestions, create a Gemini API key in Google AI Studio, copy `.env.example` to `.env.local`, and set `GEMINI_API_KEY` to your key. Restart the development server after saving. You can optionally change `GEMINI_MODEL` as well. Keep `.env.local` private and never expose the key in client-side code. When configured, extracted resume text and the job description are sent to Google Gemini for suggestions.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
