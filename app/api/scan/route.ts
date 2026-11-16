@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PDFParse } from "pdf-parse";
 import * as mammoth from "mammoth";
+import { calculateAtsScore } from "@/lib/ats";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
 // pdf-parse and mammoth require Node.js APIs and cannot run in the Edge runtime.
 export const runtime = "nodejs";
@@ -86,6 +88,19 @@ export async function POST(req: NextRequest) {
   let fileFormat: "PDF" | "DOCX" | null = null;
 
   try {
+    if (!isSupabaseConfigured()) {
+      return NextResponse.json(
+        { error: "Login is unavailable until Supabase is configured." },
+        { status: 503 }
+      );
+    }
+
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Sign in to scan and save your results." }, { status: 401 });
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const jobDescription = formData.get("jobDescription") as string | null;
@@ -94,6 +109,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Missing resume file or job description." },
         { status: 400 }
+      );
+    }
+
+    if (jobDescription.length > 20000) {
+      return NextResponse.json(
+        { error: "The job description must be 20,000 characters or fewer." },
+        { status: 413 }
       );
     }
 
@@ -149,11 +171,28 @@ export async function POST(req: NextRequest) {
 
     const cleanJobDescription = jobDescription.trim();
     const aiSuggestions = await getAiSuggestions(cleanResumeText, cleanJobDescription);
+    const analysis = calculateAtsScore(cleanResumeText, cleanJobDescription);
+    const { error: saveError } = await supabase.from("scans").insert({
+      user_id: user.id,
+      score: analysis.score,
+      job_description: cleanJobDescription,
+      dimensions: analysis.dimensions,
+      matched_keywords: analysis.matchedKeywords,
+      missing_keywords: analysis.missingKeywords,
+      required_gaps: analysis.requiredGaps,
+    });
+
+    if (saveError) {
+      console.error("Could not save scan history:", saveError.message);
+      return NextResponse.json(
+        { error: "The scan could not be saved. Check that the Supabase scans migration has been applied." },
+        { status: 503 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      resumeText: cleanResumeText,
-      jobDescription: cleanJobDescription,
+      analysis,
       aiSuggestions,
       aiEnabled: Boolean(process.env.GEMINI_API_KEY),
     });

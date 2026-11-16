@@ -24,6 +24,17 @@ The ATS score and local suggestions work without an external API. To enable AI-g
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Accounts and saved scans
+
+HirePulse uses Supabase Auth for email/password accounts and Supabase Postgres for private scan history.
+
+1. Create a Supabase project and add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` from its API settings to your existing root `.env.local`. Keep secret/service-role keys out of browser environment variables.
+3. In the Supabase SQL Editor, run `supabase/migrations/20261116000000_create_scans.sql`.
+4. In Supabase Auth URL settings, add your local app URL (for example, `http://localhost:3000`) to the allowed redirect URLs. Email confirmation is enabled by default; the confirmation link returns through `/auth/confirm`.
+5. Restart the Next.js development server, then create an account in the app.
+
+The scans table is protected by row-level security: users can only read and create their own rows. Scan history stores the score, analysis summary, and job description. Uploaded resume files and extracted resume text are not saved to the database. If AI suggestions are enabled, extracted resume text is sent to Google Gemini as described above.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
